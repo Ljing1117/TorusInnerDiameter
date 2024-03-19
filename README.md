@@ -1,0 +1,2 @@
+# TorusInnerDiameter
+寻找网格剖分后表达环体内径的三角形组
