@@ -1,0 +1,410 @@
+  !------------------------------------------------------------------------------------
+    !------------------------------------------------------------------------------------
+    !------------------------------------------------------------------------------------
+    !A号SUPER LOOP 
+    allocate(superloop_trianNumA(2000))  
+    !【找到初始点】----------------
+    do i=1,maxnode                            
+        test_node(:) = xyznode(:,i)
+        if (test_node(1) == inner_diameter) then
+            if (  ((test_node(2)-0)==0) .and. ((test_node(3)-0)==0) )then
+            Num_ori_point=i
+            exit
+            else
+                continue
+            end if
+        else
+            Num_ori_point=0
+        end if
+    end do
+    write(*,*)   "SL初始点的序号是",Num_ori_point
+    
+    if (Num_ori_point==0)then
+        write(*,*)   "SL初始点错误"
+    else
+        write(*,*)   "SL初始点的序号是",Num_ori_point
+        write(*,*)   "SL初始点的坐标是"
+        write(*,*)   test_node(1)
+        write(*,*)   test_node(2)
+        write(*,*)   test_node(3)
+    end if
+    
+    !【找到A号SL的初始RWG】-------------------
+    do j = 1,maxedge                           
+        if (iedge(5,j)==Num_ori_point)then      !设置初始点是初始RWG的自由顶点
+            if ( check_RWG12_xoy(j)==1)then     !判断RWG公共边两点有一个在xoy面上
+            !赋值******
+            RWGBase_Number(2,LoopBaseNumber-1)=j     !找到初始RWG的编号
+            superloop_trianNumA(1)=iedge(3,j) !该矩阵是特殊loop包含的三角形一个挨着一个的顺序编号
+            superloop_trianNumA(2)=iedge(4,j)
+            formerTrian = iedge(3,j);latterTrian = iedge(4,j) !临时存储一前一后三角形的编号
+            edge(:,1) = xyznode(:,iedge(1,1)) ; edge(:,2) = xyznode(:,iedge(2,1))
+            lm = distance(edge)
+            RWGBase_weight(2,LoopBaseNumber-1) = 1d0/lm 
+            BasisTranformedLS(j,LoopBaseNumber-1) = 1d0/lm *EigVecQuanTran_ALL(LoopBaseNumber-1,1)
+            
+            !**********
+            exit
+            else
+                continue
+            end if
+        else
+            continue
+        end if
+    end do
+    write(*,*)   "A号SL初始RWG的序号是",RWGBase_Number(2,LoopBaseNumber-1)
+    write(*,*)   "A号SL初始RWG的正三角形顶点的坐标是"
+    write(*,*)   xyznode(1,Num_ori_point)
+    write(*,*)   xyznode(2,Num_ori_point)
+    write(*,*)   xyznode(3,Num_ori_point)
+    write(*,*)   "A号SL初始RWG的负三角形顶点的坐标是"
+    write(*,*)   xyznode(1,iedge(6,RWGBase_Number(2,LoopBaseNumber-1)))
+    write(*,*)   xyznode(2,iedge(6,RWGBase_Number(2,LoopBaseNumber-1)))
+    write(*,*)   xyznode(3,iedge(6,RWGBase_Number(2,LoopBaseNumber-1)))
+    
+    com_Target_num=RWGBase_Number(2,LoopBaseNumber-1)
+    
+    if (  check_xoy(iedge(1,com_Target_num))==1  )then
+        com_Target_position = Detect_xoy_position(  iedge(2,com_Target_num)  )
+    elseif(  check_xoy(iedge(2,com_Target_num))==1  )then
+        com_Target_position = Detect_xoy_position(  iedge(1,com_Target_num)  )
+    end if
+    write(*,*)   "A号SL初始RWG相对xoy面的位置",com_Target_position
+   
+    
+    
+    !【A继续找三角形和RWG】--------------
+    formerTrian = superloop_trianNumA(1)
+    latterTrian = superloop_trianNumA(2)
+    skip = 1;find_LT_push=0
+    
+    do k = 1,maxedge
+        skip = skip+1!superloop_trianNumA的标号
+        write(*,*)"formerTrian",formerTrian
+        write(*,*)"latterTrian",latterTrian
+        do i = 1,maxedge
+            if (iedge(3,i)==latterTrian) then
+                if( check_xoy(iedge(1,i))==1 )then
+                    find_LT_push = find_LT_push+1               !计数器，三角形个数标号
+                    RWG_position_A(find_LT_push)= iedge(2,i)    !等待对比的点的编号
+                    find_latterTrian_c(find_LT_push)=iedge(4,i) !找到的三角形的编号
+                    rwgnum_test(find_LT_push) = i               !RWG的编号
+                    edge(:,1) = xyznode(:,iedge(1,i)) ; edge(:,2) = xyznode(:,iedge(2,i))
+                    lm = distance(edge)
+                    rwgweight_test(find_LT_push) = 1d0/lm
+                elseif( check_xoy(iedge(2,i))==1 )then
+                    find_LT_push = find_LT_push+1
+                    RWG_position_A(find_LT_push)= iedge(1,i)
+                    find_latterTrian_c(find_LT_push)=iedge(4,i)
+                    rwgnum_test(find_LT_push) = i               !RWG的编号
+                    edge(:,1) = xyznode(:,iedge(1,i)) ; edge(:,2) = xyznode(:,iedge(2,i))
+                    lm = distance(edge)
+                    rwgweight_test(find_LT_push) = 1d0/lm
+                else
+                    find_LT_push = find_LT_push
+                end if      
+            elseif (iedge(4,i)==latterTrian) then         
+                if( check_xoy(iedge(1,i))==1 )then
+                    find_LT_push = find_LT_push+1               !计数器，三角形个数标号
+                    RWG_position_A(find_LT_push)= iedge(2,i)    !等待对比的点的编号
+                    find_latterTrian_c(find_LT_push)=iedge(3,i) !找到的三角形的编号
+                    rwgnum_test(find_LT_push) = i               !RWG的编号
+                    edge(:,1) = xyznode(:,iedge(1,i)) ; edge(:,2) = xyznode(:,iedge(2,i))
+                    lm = distance(edge)
+                    rwgweight_test(find_LT_push) = -1d0/lm
+                elseif( check_xoy(iedge(2,i))==1 )then
+                    find_LT_push = find_LT_push+1
+                    RWG_position_A(find_LT_push)= iedge(1,i)
+                    find_latterTrian_c(find_LT_push)=iedge(3,i)
+                    rwgnum_test(find_LT_push) = i               !RWG的编号
+                    edge(:,1) = xyznode(:,iedge(1,i)) ; edge(:,2) = xyznode(:,iedge(2,i))
+                    lm = distance(edge)
+                    rwgweight_test(find_LT_push) = -1d0/lm
+                else
+                    find_LT_push = find_LT_push
+                end if
+            else
+            find_LT_push=find_LT_push
+            end if
+        end do
+        write(*,*)"find_LT_push",find_LT_push
+        
+        
+        do j=1,find_LT_push
+            if ( find_latterTrian_c(j) .ne. formerTrian ) then   !排除前一个三角形
+                write(*,*)"排除前一个三角形ok"
+                write(*,*)"com_Target_position",com_Target_position
+                write(*,*)"Detect_xoy_position",Detect_xoy_position(RWG_position_A(j))
+                Detect_serpent = com_Target_position * Detect_xoy_position(RWG_position_A(j))!中间变量，检测变量
+                if (Detect_serpent>0) then
+                    superloop_trianNumA(skip+1)             = find_latterTrian_c(j)   !存储一下 选好的三角形编号
+                    RWGBase_Number(skip+1,LoopBaseNumber-1) = rwgnum_test(j)          !存储一下 选好的下一个rwg编号
+                    RWGBase_weight(skip+1,LoopBaseNumber-1) = rwgweight_test(j)       !存储一下 选好的下一个rwg正负方向情况（系数）
+                    BasisTranformedLS(rwgnum_test(j),LoopBaseNumber-1) = rwgweight_test(j) *EigVecQuanTran_ALL(LoopBaseNumber-1,1)
+                else
+                    write(*,*)"Detect_xoy_position,error"
+                end if
+            else
+                write(*,*)"排除前一个三角形no"
+            end if
+        end do
+        
+        
+        !do j=1,3
+        !    if (check_RWG12_xoy(rwgnum_test(j))==1) then      !检测RWG的公共边两点是否存在一点在xoy面上
+        !        write(*,*)"1步yes。RWG的公共边两点有一点在xoy面上"
+        !        if ( find_latterTrian_c(j) .ne. formerTrian ) then   !排除前一个三角形
+        !            write(*,*)"2步Yes。排除前一个三角形"
+        !            write(*,*)"com_Target_position",com_Target_position
+        !            write(*,*)j,"check_RWGnode_position",Detect_xoy_position(iedge(1,j))
+        !            write(*,*)j,"check_RWGnode_position",Detect_xoy_position(iedge(2,j))
+        !            write(*,*)j,"check_RWG_position",check_RWG_position(j)
+        !            Detect_serpent = com_Target_position * check_RWG_position(j)  !中间变量，检测变量
+        !            write(*,*)"Detect_serpent",Detect_serpent
+        !            if ( Detect_serpent>0  ) then                !检测RWG相对xoy面的位置信息
+        !                write(*,*)"3步yes。检测RWG相对xoy面的位置信息",Detect_serpent
+        !                superloop_trianNumA(skip+1)             = find_latterTrian_c(j)   !存储一下 选好的三角形编号
+        !                RWGBase_Number(skip+1,LoopBaseNumber-1) = rwgnum_test(j)          !存储一下 选好的下一个rwg编号
+        !                RWGBase_weight(skip+1,LoopBaseNumber-1) = rwgweight_test(j)       !存储一下 选好的下一个rwg正负方向情况（系数）
+        !                !exit
+        !            else
+        !                write(*,*)"3步No。检测RWG相对xoy面的位置信息"
+        !                !continue
+        !            end if  
+        !        else
+        !            write(*,*)"2步No。排除前一个三角形"
+        !            !continue
+        !        end if
+        !    else
+        !        write(*,*)"1步No。RWG的公共边两点有一点在xoy面上"
+        !        !continue
+        !    end if
+        !end do
+        
+        formerTrian = superloop_trianNumA(skip)
+        latterTrian = superloop_trianNumA(skip+1)  
+        find_LT_push = 0
+        
+        if (formerTrian == superloop_trianNumA(1) ) then
+            RWGBase_Number(1,LoopBaseNumber-1) = skip
+            exit
+        end if 
+        
+    end do
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+ 
+    
+    
+    !------------------------------------------------------------------------------------
+    !------------------------------------------------------------------------------------
+    !------------------------------------------------------------------------------------
+    !B号SUPER LOOP
+    allocate(superloop_trianNumB(2000))  
+    write(*,*)   "B号SUPER LOOP"
+    
+    write(*,*)   "A号SL初始RWG位置",com_Target_position
+    allocate(BlossomRWGnum(15)) 
+    allocate(blossom_position(15))
+    allocate(blossom_trianP(15))
+    allocate(blossom_trianN(15))
+    allocate(Blossom_weight(15))
+    tip=0!integer
+    
+    !【找到B号SL的初始RWG】--------------
+    do j = 1,maxedge                           
+        if (iedge(5,j)==Num_ori_point)then      !设置初始点是初始RWG的自由顶点
+            if ( check_xoy(iedge(1,j))==1 )then
+                tip = tip+1
+                BlossomRWGnum(tip)=j   !【选中的RWG编号,当前选中的RWG满足初始点和公共边某点在xoy面上这一条件】
+                blossom_position(tip)=iedge(2,j)!等待对比的点的编号
+                blossom_trianP(tip)=iedge(3,j)!正负三角形的编号
+                blossom_trianN(tip)=iedge(4,j)
+                edge(:,1) = xyznode(:,iedge(1,j)) ; edge(:,2) = xyznode(:,iedge(2,j))
+                lm = distance(edge)
+                Blossom_weight(tip)=-1d0/lm
+            elseif( check_xoy(iedge(2,j))==1 )then
+                !Blossom_Target = Detect_xoy_position(iedge(1,j))*com_Target_position
+                tip = tip+1
+                BlossomRWGnum(tip)=j
+                blossom_position(tip)=iedge(1,j)
+                blossom_trianP(tip)=iedge(3,j)
+                blossom_trianN(tip)=iedge(4,j)
+                edge(:,1) = xyznode(:,iedge(1,j)) ; edge(:,2) = xyznode(:,iedge(2,j))
+                lm = distance(edge)
+                Blossom_weight(tip)=-1d0/lm
+            else
+                tip = tip
+            end if
+        elseif(iedge(6,j)==Num_ori_point)then
+            if ( check_xoy(iedge(1,j))==1 )then
+                tip = tip+1
+                BlossomRWGnum(tip)=j
+                blossom_position(tip)=iedge(2,j)
+                blossom_trianP(tip)=iedge(4,j)
+                blossom_trianN(tip)=iedge(3,j)
+                edge(:,1) = xyznode(:,iedge(1,j)) ; edge(:,2) = xyznode(:,iedge(2,j))
+                lm = distance(edge)
+                Blossom_weight(tip)=1d0/lm
+            elseif( check_xoy(iedge(2,j))==1 )then
+                tip = tip+1
+                BlossomRWGnum(tip)=j
+                blossom_position(tip)=iedge(1,j)
+                blossom_trianP(tip)=iedge(4,j)
+                blossom_trianN(tip)=iedge(3,j)
+                edge(:,1) = xyznode(:,iedge(1,j)) ; edge(:,2) = xyznode(:,iedge(2,j))
+                lm = distance(edge)
+                Blossom_weight(tip)=1d0/lm
+            else
+                tip = tip
+            end if
+        end if
+        blossom_num =  tip   
+    end do
+    write(*,*)   "找到blossomRWG个数",blossom_num
+    do k = 1,blossom_num
+        Detect_TargetandBlossom = com_Target_position * Detect_xoy_position( blossom_position(k) )
+        if (Detect_TargetandBlossom<0) then
+            write(*,*)   "找到起始blossomRWG"
+            RWGBase_Number(2,LoopBaseNumber)=BlossomRWGnum(k)
+            RWGBase_weight(2,LoopBaseNumber)=Blossom_weight(k)
+            BasisTranformedLS(BlossomRWGnum(k),LoopBaseNumber) = Blossom_weight(k) *EigVecQuanTran_ALL(LoopBaseNumber,1)
+            
+            superloop_trianNumB(1)=blossom_trianP(k)
+            superloop_trianNumB(2)=blossom_trianN(k)  
+            write(*,*)   "B号SL初始RWG位置",Detect_xoy_position( blossom_position(k) )
+            Target_positionB = Detect_xoy_position( blossom_position(k) )
+            exit
+        else
+            continue
+        end if
+    end do
+    
+    
+    !【B继续找三角形和RWG】--------------
+    formerTrian = superloop_trianNumB(1)
+    latterTrian = superloop_trianNumB(2)
+    skip = 1;find_B=0
+    
+    do k = 1,maxedge
+        skip = skip+1!superloop_trianNumB的标号
+        do i = 1,maxedge
+            if (iedge(3,i)==latterTrian) then
+                if (check_xoy(iedge(1,i))==1) then
+                    find_B = find_B+1             !三角形个数标号
+                    RWG_position_B(find_B)= iedge(2,i) 
+                    find_latterTrianB(find_B)=iedge(4,i) !三个三角形的编号
+                    rwgnumB(find_B) = i             !三个rwg的编号
+                    edge(:,1) = xyznode(:,iedge(1,i)) ; edge(:,2) = xyznode(:,iedge(2,i))
+                    lm = distance(edge)
+                    sec_weight(find_B) = -1d0/lm   
+                elseif( check_xoy(iedge(2,i))==1 )then
+                    find_B = find_B+1             !三角形个数标号
+                    RWG_position_B(find_B)= iedge(1,i) 
+                    find_latterTrianB(find_B)=iedge(4,i) !三个三角形的编号
+                    rwgnumB(find_B) = i             !三个rwg的编号
+                    edge(:,1) = xyznode(:,iedge(1,i)) ; edge(:,2) = xyznode(:,iedge(2,i))
+                    lm = distance(edge)
+                    sec_weight(find_B) = -1d0/lm 
+                else
+                    find_B = find_B
+                end if  
+            elseif (iedge(4,i)==latterTrian) then   
+                if (check_xoy(iedge(1,i))==1) then
+                    find_B = find_B+1             !三角形个数标号
+                    RWG_position_B(find_B)= iedge(2,i) 
+                    find_latterTrianB(find_B)=iedge(3,i) !三个三角形的编号
+                    rwgnumB(find_B) = i             !三个rwg的编号
+                    edge(:,1) = xyznode(:,iedge(1,i)) ; edge(:,2) = xyznode(:,iedge(2,i))
+                    lm = distance(edge)
+                    sec_weight(find_B) = 1d0/lm   
+                elseif( check_xoy(iedge(2,i))==1 )then
+                    find_B = find_B+1             !三角形个数标号
+                    RWG_position_B(find_B)= iedge(1,i) 
+                    find_latterTrianB(find_B)=iedge(3,i) !三个三角形的编号
+                    rwgnumB(find_B) = i             !三个rwg的编号
+                    edge(:,1) = xyznode(:,iedge(1,i)) ; edge(:,2) = xyznode(:,iedge(2,i))
+                    lm = distance(edge)
+                    sec_weight(find_B) = 1d0/lm 
+                else
+                    find_B = find_B
+                end if  
+            else
+                find_B=find_B
+            end if
+        end do
+        write(*,*)"find_B",find_B
+        
+        
+        do j=1,find_B
+            if ( find_latterTrianB(j) .ne. formerTrian ) then   !排除前一个三角形
+                write(*,*)"B 排除前一个三角形ok"
+                write(*,*)"B com_Target_position",Target_positionB
+                write(*,*)"B Detect_xoy_position",Detect_xoy_position(RWG_position_B(j))
+                Detect_serpent = Target_positionB * Detect_xoy_position(RWG_position_B(j))!中间变量，检测变量
+                if (Detect_serpent>0) then
+                    superloop_trianNumB(skip+1)             = find_latterTrianB(j)   !存储一下 选好的三角形编号
+                    RWGBase_Number(skip+1,LoopBaseNumber) = rwgnumB(j)          !存储一下 选好的下一个rwg编号
+                    RWGBase_weight(skip+1,LoopBaseNumber) = sec_weight(j)       !存储一下 选好的下一个rwg正负方向情况（系数）
+                    BasisTranformedLS(rwgnumB(j),LoopBaseNumber) = sec_weight(j) *EigVecQuanTran_ALL(LoopBaseNumber,1)
+            
+                else
+                    write(*,*)"B Detect_xoy_positionB,error"
+                end if
+            else
+                write(*,*)"B 排除前一个三角形no"
+            end if
+        end do
+        !do j=1,3
+        !    if (check_RWG12_xoy(rwgnumB(j))==1) then      !检测RWG的公共边两点是否存在一点在xoy面上
+        !        if ( find_latterTrianB(j) .ne. formerTrian ) then   !排除前一个三角形
+        !            Detect_serpent = com_Target_position*check_RWG_position(j)  !中间变量，检测变量
+        !            if ( Detect_serpent>0  ) then                !检测RWG相对xoy面的位置信息
+        !                write(*,*)"Detect_serpent",Detect_serpent
+        !                superloop_trianNumB(skip+1)           = find_latterTrianB(j)   !存储一下 选好的三角形编号
+        !                RWGBase_Number(skip+1,LoopBaseNumber) = rwgnumB(j)          !存储一下 选好的下一个rwg编号
+        !                RWGBase_weight(skip+1,LoopBaseNumber) = sec_weight(j)       !存储一下 选好的下一个rwg正负方向情况（系数）
+        !                exit
+        !            else
+        !                continue
+        !            end if  
+        !        else
+        !            continue
+        !        end if
+        !    else
+        !        continue
+        !    end if
+        !end do
+        
+        formerTrian = superloop_trianNumB(skip)
+        latterTrian = superloop_trianNumB(skip+1)  
+        find_B = 0
+        
+        if (formerTrian == superloop_trianNumB(1) ) then
+            RWGBase_Number(1,LoopBaseNumber) = skip
+            exit
+        end if 
+        
+    end do
+    
+    
+    
+    
+    
